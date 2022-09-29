@@ -1,20 +1,22 @@
 'use strict'
 
-var HomeKitGenericService = require('./HomeKitGenericService.js').HomeKitGenericService
+var HomeKitGenericService = require('homebridge-homematic/ChannelServices/HomeKitGenericService.js').HomeKitGenericService
 var util = require('util')
 
-function HomeMaticHomeKitIPThermostatService (log, platform, id, name, type, adress, special, cfg, Service, Characteristic) {
-  HomeMaticHomeKitIPThermostatService.super_.apply(this, arguments)
+function HomeMaticHomeKitRadiatorThermostatServiceIP(log, platform, id, name, type, adress, special, cfg, Service, Characteristic) {
+  HomeMaticHomeKitRadiatorThermostatServiceIP.super_.apply(this, arguments)
 }
 
-util.inherits(HomeMaticHomeKitIPThermostatService, HomeKitGenericService)
+util.inherits(HomeMaticHomeKitRadiatorThermostatServiceIP, HomeKitGenericService)
 
-HomeMaticHomeKitIPThermostatService.prototype.createDeviceService = function (Service, Characteristic) {
+HomeMaticHomeKitRadiatorThermostatServiceIP.prototype.createDeviceService = function (Service, Characteristic) {
   var that = this
   this.usecache = false
   var thermo = new Service['Thermostat'](this.name)
   this.services.push(thermo)
-  this.enableLoggingService('thermo')
+  this.enableLoggingService('radiator')
+
+  this.log.debug('[Radiator] id %s, name %s, type %s, adress %s', this.id, this.name, this.type, this.adress)
 
   var mode = thermo.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
     .on('get', function (callback) {
@@ -71,20 +73,6 @@ HomeMaticHomeKitIPThermostatService.prototype.createDeviceService = function (Se
 
   this.cctemp.eventEnabled = true
 
-  var humidity = new Service.HumiditySensor(this.name)
-  this.services.push(humidity)
-
-  this.cchum = humidity.getCharacteristic(Characteristic.CurrentRelativeHumidity)
-    .on('get', function (callback) {
-      that.query('HUMIDITY', function (value) {
-        that.currentHumidity = parseFloat(value)
-        if (callback) callback(null, value)
-      })
-    })
-
-  this.setCurrentStateCharacteristic('HUMIDITY', this.cchum)
-  this.cchum.eventEnabled = true
-
   this.ttemp = thermo.getCharacteristic(Characteristic.TargetTemperature)
     .setProps({ minValue: 6.0, maxValue: 30.5, minStep: 0.1 })
     .on('get', function (callback) {
@@ -115,15 +103,8 @@ HomeMaticHomeKitIPThermostatService.prototype.createDeviceService = function (Se
   this.queryData()
 }
 
-HomeMaticHomeKitIPThermostatService.prototype.queryData = function () {
+HomeMaticHomeKitRadiatorThermostatServiceIP.prototype.queryData = function () {
   var that = this
-  this.query('HUMIDITY', function (value) {
-    if (value !== '') {
-      let newHumidity = parseFloat(value)
-      that.cchum.updateValue(newHumidity, null)
-      that.addLogEntry({ humidity: newHumidity })
-    }
-  })
 
   this.query('ACTUAL_TEMPERATURE', function (value) {
     that.cctemp.updateValue(parseFloat(value), null)
@@ -134,22 +115,14 @@ HomeMaticHomeKitIPThermostatService.prototype.queryData = function () {
   this.refreshTimer = setTimeout(function () { that.queryData() }, 10 * 60 * 1000)
 }
 
-HomeMaticHomeKitIPThermostatService.prototype.shutdown = function () {
+HomeMaticHomeKitRadiatorThermostatServiceIP.prototype.shutdown = function () {
   clearTimeout(this.refreshTimer)
 }
 
-HomeMaticHomeKitIPThermostatService.prototype.datapointEvent = function (dp, newValue) {
+HomeMaticHomeKitRadiatorThermostatServiceIP.prototype.datapointEvent = function (dp, newValue) {
   if (this.isDataPointEvent(dp, 'ACTUAL_TEMPERATURE')) {
     this.cctemp.updateValue(parseFloat(newValue), null)
     this.addLogEntry({ currentTemp: parseFloat(newValue) })
-  }
-
-  if (this.isDataPointEvent(dp, 'HUMIDITY')) {
-    if (newValue !== '') {
-      let newHumidity = parseFloat(newValue)
-      this.cchum.updateValue(newHumidity, null)
-      this.addLogEntry({ humidity: newHumidity })
-    }
   }
 
   if (this.isDataPointEvent(dp, 'SET_POINT_TEMPERATURE')) {
@@ -158,4 +131,4 @@ HomeMaticHomeKitIPThermostatService.prototype.datapointEvent = function (dp, new
   }
 }
 
-module.exports = HomeMaticHomeKitIPThermostatService
+module.exports = HomeMaticHomeKitRadiatorThermostatServiceIP
